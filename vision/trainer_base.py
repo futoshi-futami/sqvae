@@ -54,6 +54,13 @@ class TrainerBase(nn.Module):
             res_test = self._test()
             if self.flgs.save:
                 self._writer_val(res_test, epoch)
+                if "mse" in res_test:
+                    gap = res_test["mse"] - res_train["mse"]
+                elif "acc" in res_test:
+                    gap = res_test["acc"] - res_train["acc"]
+                else:
+                    gap = res_test["loss"] - res_train["loss"]
+                self._writer_gap(gap)
             
             if self.flgs.save:
                 if res_test["loss"] <= BEST_LOSS:
@@ -198,6 +205,10 @@ class TrainerBase(nn.Module):
     def _writer_test(self, result):
         self._append_writer_test(result)
         np.save(os.path.join(self.path, "plots.npy"), self.plots)
+
+    def _writer_gap(self, value):
+        self._append_writer_gap(value)
+        np.save(os.path.join(self.path, "plots.npy"), self.plots)
     
     def _append_writer_train(self, result):
         for metric in result:
@@ -210,4 +221,7 @@ class TrainerBase(nn.Module):
     def _append_writer_test(self, result):
         for metric in result:
             self.plots[metric+"_test"].append(result[metric])
+
+    def _append_writer_gap(self, value):
+        self.plots["gap"].append(value)
 

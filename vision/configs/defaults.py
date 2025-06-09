@@ -12,6 +12,8 @@ _C.dataset = CN(new_allowed=True)
 _C.model = CN(new_allowed=True)
 
 _C.network = CN(new_allowed=True)
+_C.network.num_rb_enc = 2
+_C.network.num_rb_dec = 2
 
 _C.train = CN(new_allowed=True)
 _C.train.bs = 32
