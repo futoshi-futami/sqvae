@@ -24,18 +24,12 @@ def load_gap(path):
     return gap, num_enc, num_dec
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Plot generalization gap")
-    parser.add_argument("paths", nargs="+", help="experiment directories")
-    parser.add_argument("--target", choices=["encoder", "decoder"], default="encoder")
-    parser.add_argument("--output", default="gap_plot.png")
-    args = parser.parse_args()
-
+def plot_gap(paths, target="encoder", output="gap_plot.png"):
     xs = []
     ys = []
-    for p in args.paths:
+    for p in paths:
         gap, num_enc, num_dec = load_gap(p)
-        xs.append(num_enc if args.target == "encoder" else num_dec)
+        xs.append(num_enc if target == "encoder" else num_dec)
         ys.append(gap)
 
     order = np.argsort(xs)
@@ -44,10 +38,20 @@ def main():
 
     plt.figure()
     plt.plot(xs, ys, marker="o")
-    plt.xlabel(f"number of ResNet blocks ({args.target})")
+    plt.xlabel(f"number of ResNet blocks ({target})")
     plt.ylabel("generalization gap")
-    plt.savefig(args.output)
-    print(f"Saved plot to {args.output}")
+    plt.savefig(output)
+    print(f"Saved plot to {output}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Plot generalization gap")
+    parser.add_argument("paths", nargs="+", help="experiment directories")
+    parser.add_argument("--target", choices=["encoder", "decoder"], default="encoder")
+    parser.add_argument("--output", default="gap_plot.png")
+    args = parser.parse_args()
+
+    plot_gap(args.paths, target=args.target, output=args.output)
 
 
 if __name__ == "__main__":
