@@ -18,14 +18,17 @@ def run_training(cfg_file, gpu, seed, enc_rb=None, dec_rb=None):
     return run_main(args)
 
 
-def sweep(cfg_file, gpu, seed, values, target):
-    paths = []
+def sweep(cfg_file, gpu, seeds, values, target):
+    paths = {}
     for rb in values:
-        if target == "encoder":
-            p = run_training(cfg_file, gpu, seed, enc_rb=rb)
-        else:
-            p = run_training(cfg_file, gpu, seed, dec_rb=rb)
-        paths.append(p)
+        run_dirs = []
+        for seed in seeds:
+            if target == "encoder":
+                p = run_training(cfg_file, gpu, seed, enc_rb=rb)
+            else:
+                p = run_training(cfg_file, gpu, seed, dec_rb=rb)
+            run_dirs.append(p)
+        paths[rb] = run_dirs
     return paths
 
 
@@ -33,13 +36,16 @@ def main():
     parser = argparse.ArgumentParser(description="Run layer sweep and plot gaps")
     parser.add_argument("-c", "--config", required=True, help="config file")
     parser.add_argument("--gpu", default="0", help="GPU index")
-    parser.add_argument("--seed", type=int, default=0, help="random seed")
+    parser.add_argument(
+        "--seeds", nargs="*", type=int, default=[0],
+        help="one or more random seeds to average over",
+    )
     parser.add_argument("--values", nargs="*", type=int, default=[2,4,6,8],
                         help="ResNet layer counts")
     args = parser.parse_args()
 
-    enc_paths = sweep(args.config, args.gpu, args.seed, args.values, "encoder")
-    dec_paths = sweep(args.config, args.gpu, args.seed, args.values, "decoder")
+    enc_paths = sweep(args.config, args.gpu, args.seeds, args.values, "encoder")
+    dec_paths = sweep(args.config, args.gpu, args.seeds, args.values, "decoder")
 
     plot_gap(enc_paths, target="encoder", output="gap_encoder.png")
     plot_gap(dec_paths, target="decoder", output="gap_decoder.png")
