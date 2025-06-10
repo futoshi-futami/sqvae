@@ -13,7 +13,9 @@ def load_gap(path):
     with open(config_path, "r") as f:
         cfg = json.load(f)
     plots = np.load(plot_path, allow_pickle=True).item()
-    if "generalization_gap" in plots:
+    if "gap" in plots:
+        gap = plots["gap"][-1]
+    elif "generalization_gap" in plots:
         gap = plots["generalization_gap"][-1]
     else:
         train_key = "mse_train" if "mse_train" in plots else "acc_train"

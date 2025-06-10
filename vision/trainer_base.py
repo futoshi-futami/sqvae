@@ -118,7 +118,7 @@ class TrainerBase(nn.Module):
     
     def generate_reconstructions_paper(self, nrows=1, ncols=10, off_set=0):
         self.model.eval()
-        x = self.test_loader.__iter__().next()[0]
+        x = next(iter(self.test_loader))[0]
         x = x[off_set:off_set+nrows*ncols].cuda()
         output = self.model(x, flg_train=False, flg_quant_det=True)
         x_tilde = output[0]
@@ -131,7 +131,7 @@ class TrainerBase(nn.Module):
 
     def _generate_reconstructions_continuous(self, filename, nrows=4, ncols=8):
         self.model.eval()
-        x = self.test_loader.__iter__().next()[0]
+        x = next(iter(self.test_loader))[0]
         x = x[:nrows*ncols].cuda()
         output = self.model(x, flg_train=False, flg_quant_det=True)
         x_tilde = output[0]
@@ -141,7 +141,7 @@ class TrainerBase(nn.Module):
     
     def _generate_reconstructions_discrete(self, filename, nrows=4, ncols=8):
         self.model.eval()
-        x, y = self.test_loader.__iter__().next()
+        x, y = next(iter(self.test_loader))
         x = x[:nrows*ncols].cuda()
         y = y[:nrows*ncols].cuda()
         y[:, 0, :, :] = y[:, 0, :, :] * 255.0
