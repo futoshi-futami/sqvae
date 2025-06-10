@@ -63,8 +63,9 @@ def plot_gap(paths, target="encoder", output="gap_plot.png"):
         if isinstance(gaps[0], str):
             gaps = [load_gap(g)[0] for g in gaps]
         xs.append(rb)
-        means.append(np.mean(gaps))
-        stds.append(np.std(gaps))
+        abs_gaps = np.abs(gaps)
+        means.append(np.mean(abs_gaps))
+        stds.append(np.std(abs_gaps))
 
     plt.figure()
     plt.errorbar(xs, means, yerr=stds, marker="o", capsize=3)
