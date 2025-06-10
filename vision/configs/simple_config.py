@@ -14,6 +14,9 @@ class CfgNode(dict):
     def __getattr__(self, name):
         if name in self:
             return self[name]
+        # Avoid creating new nodes for special methods
+        if name.startswith('_'):
+            raise AttributeError(name)
         if object.__getattribute__(self, '_new_allowed'):
             node = CfgNode(new_allowed=True)
             self[name] = node
@@ -46,6 +49,13 @@ class CfgNode(dict):
 
     def clone(self):
         return copy.deepcopy(self)
+
+    def __deepcopy__(self, memo):
+        new = CfgNode(new_allowed=object.__getattribute__(self, '_new_allowed'))
+        memo[id(self)] = new
+        for k, v in self.items():
+            new[k] = copy.deepcopy(v, memo)
+        return new
 
     def freeze(self):
         def _freeze(node):
