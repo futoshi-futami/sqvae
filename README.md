@@ -14,6 +14,14 @@ pip install -r vision/requirements.txt    # for vision tasks
 pip install -r speech/requirements.txt    # for speech tasks
 ```
 
+The training scripts expect dataset and checkpoint locations to be writable.
+Set the paths via environment variables before running any experiments:
+
+```bash
+export SQVAE_DATA=/path/to/datasets
+export SQVAE_CHECKPOINT=/path/to/checkpoints
+```
+
 
 # Citation
 [1] Takida, Y., Shibuya, T., Liao, W., Lai, C., Ohmura, J., Uesaka, T., Murata, N., Takahashi S., Kumakura, T. and Mitsufuji, Y.,
