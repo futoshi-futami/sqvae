@@ -37,8 +37,8 @@ def main():
     parser.add_argument("-c", "--config", required=True, help="config file")
     parser.add_argument("--gpu", default="0", help="GPU index")
     parser.add_argument(
-        "--seeds", nargs="*", type=int, default=[0],
-        help="one or more random seeds to average over",
+        "--seeds", nargs="*", type=int, default=list(range(10)),
+        help="random seeds to average over (default: 0..9)",
     )
     parser.add_argument("--values", nargs="*", type=int, default=[2,4,6,8],
                         help="ResNet layer counts")
