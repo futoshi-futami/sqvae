@@ -34,7 +34,9 @@ def run_training(cfg_file, gpu, seed, enc_rb=None, dec_rb=None):
     if dec_rb is not None:
         cmd.extend(["--dec_rb", str(dec_rb)])
 
-    subprocess.run(cmd, check=True)
+    env = os.environ.copy()
+    env.setdefault("MKL_SERVICE_FORCE_INTEL", "1")
+    subprocess.run(cmd, check=True, env=env)
 
     after = set(glob.glob(pattern))
     new_dirs = list(after - before)

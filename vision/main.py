@@ -1,5 +1,7 @@
 import os
+os.environ.setdefault("MKL_SERVICE_FORCE_INTEL", "1")
 import argparse
+import numpy as np  # ensure MKL is initialized before torch
 from configs.defaults import get_cfgs_defaults
 import torch
 
