@@ -1,4 +1,10 @@
-from yacs.config import CfgNode as CN
+try:
+    from yacs.config import CfgNode as CN
+except ImportError as e:
+    raise ImportError(
+        "Required package 'yacs' is missing. Install dependencies with "
+        "'pip install -r vision/requirements.txt'"
+    ) from e
 
 _C = CN(new_allowed=True)
 _C.path = "/checkpoint_path" # To be set in advance
