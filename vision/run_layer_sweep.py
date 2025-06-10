@@ -14,7 +14,9 @@ def get_config(cfg_file):
     cfgs.merge_from_file(config_path)
     base_path = os.path.join(cfgs.path, cfgs.path_specific)
     network_name = cfgs.network.name
-    seed = cfgs.train.seed
+    # Older configuration files might not specify a training seed.  Provide
+    # a default to avoid AttributeError when accessing the field.
+    seed = getattr(cfgs.train, "seed", None)
     return base_path, network_name, seed, config_path
 
 
