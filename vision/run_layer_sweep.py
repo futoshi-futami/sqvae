@@ -1,48 +1,21 @@
-import os
 import argparse
-import subprocess
-import glob
-import json
-
-from configs.defaults import get_cfgs_defaults
+from argparse import Namespace
 from plot_generalization_gap import plot_gap
-
-
-def get_config(cfg_file):
-    cfgs = get_cfgs_defaults()
-    config_path = os.path.join(os.path.dirname(__file__), "configs", cfg_file)
-    cfgs.merge_from_file(config_path)
-    base_path = os.path.join(cfgs.path, cfgs.path_specific)
-    network_name = cfgs.network.name
-    # Older configuration files might not specify a training seed.  Provide
-    # a default to avoid AttributeError when accessing the field.
-    seed = getattr(cfgs.train, "seed", None)
-    return base_path, network_name, seed, config_path
+from main import run as run_main
 
 
 def run_training(cfg_file, gpu, seed, enc_rb=None, dec_rb=None):
-    base_path, network_name, _, _ = get_config(cfg_file)
-    pattern = os.path.join(base_path, f"{network_name}_seed{seed}_*")
-    before = set(glob.glob(pattern))
-
-    cmd = ["python", os.path.join(os.path.dirname(__file__), "main.py"),
-           "-c", cfg_file, "--save", "--seed", str(seed)]
-    if gpu:
-        cmd.extend(["--gpu", gpu])
-    if enc_rb is not None:
-        cmd.extend(["--enc_rb", str(enc_rb)])
-    if dec_rb is not None:
-        cmd.extend(["--dec_rb", str(dec_rb)])
-
-    env = os.environ.copy()
-    env.setdefault("MKL_SERVICE_FORCE_INTEL", "1")
-    subprocess.run(cmd, check=True, env=env)
-
-    after = set(glob.glob(pattern))
-    new_dirs = list(after - before)
-    if not new_dirs:
-        raise RuntimeError("Experiment directory not found after training")
-    return new_dirs[0]
+    args = Namespace(
+        config_file=cfg_file,
+        timestamp="",
+        save=True,
+        dbg=False,
+        gpu=gpu,
+        seed=seed,
+        enc_rb=enc_rb,
+        dec_rb=dec_rb,
+    )
+    return run_main(args)
 
 
 def sweep(cfg_file, gpu, seed, values, target):

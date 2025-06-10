@@ -61,11 +61,26 @@ def load_config(args):
     return cfgs, flgs
 
 
-if __name__ == "__main__":
+def run(args=None):
+    """Run training according to the provided arguments.
+
+    Parameters
+    ----------
+    args : argparse.Namespace, optional
+        Parsed command line arguments. If ``None`` (default), arguments will be
+        parsed from ``sys.argv`` using :func:`arg_parse`.
+
+    Returns
+    -------
+    str
+        Path to the directory where experiment results were stored.
+    """
+    if args is None:
+        args = arg_parse()
+
     print("main.py")
-    
+
     ## Experimental setup
-    args = arg_parse()
     if args.gpu != "":
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     cfgs, flgs = load_config(args)
@@ -104,4 +119,9 @@ if __name__ == "__main__":
         else:
             gap = res_test["loss"] - trainer.plots["loss_train"][-1]
         np.save(os.path.join(trainer.path, "generalization_gap.npy"), gap)
+    return trainer.path
+
+
+if __name__ == "__main__":
+    run()
 
