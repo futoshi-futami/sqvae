@@ -22,7 +22,7 @@ class EncoderVqResnet64(nn.Module):
         layers_conv.append(nn.Conv2d(dim_z, dim_z, 3, stride=1, padding=1))
         self.conv = nn.Sequential(*layers_conv)
         # Resblocks
-        num_rb = cfgs.num_rb
+        num_rb = getattr(cfgs, "num_rb_enc", cfgs.num_rb)
         layers_resblocks = []
         for i in range(num_rb-1):
             layers_resblocks.append(ResBlock(dim_z))
@@ -46,7 +46,7 @@ class DecoderVqResnet64(nn.Module):
     def __init__(self, dim_z, cfgs, flg_bn=True):
         super(DecoderVqResnet64, self).__init__()
         # Resblocks
-        num_rb = cfgs.num_rb
+        num_rb = getattr(cfgs, "num_rb_dec", cfgs.num_rb)
         layers_resblocks = []
         for i in range(num_rb-1):
             layers_resblocks.append(ResBlock(dim_z))
@@ -90,7 +90,7 @@ class EncoderVqResnet64Label(nn.Module):
         layers_conv.append(nn.Conv2d(dim_z, dim_z, 4, stride=2, padding=1))
         self.conv = nn.Sequential(*layers_conv)
         # Resblocks
-        num_rb = cfgs.num_rb
+        num_rb = getattr(cfgs, "num_rb_enc", cfgs.num_rb)
         layers_resblocks = []
         for i in range(num_rb-1):
             layers_resblocks.append(ResBlock(dim_z))
@@ -120,7 +120,7 @@ class DecoderVqResnet64Label(nn.Module):
         super(DecoderVqResnet64Label, self).__init__()
         self.n_class = int(np.ceil(cfgs.num_class / 2) * 2)
         # Resblocks
-        num_rb = cfgs.num_rb
+        num_rb = getattr(cfgs, "num_rb_dec", cfgs.num_rb)
         layers_resblocks = []
         for i in range(num_rb-1):
             layers_resblocks.append(ResBlock(dim_z))

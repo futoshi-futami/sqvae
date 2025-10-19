@@ -12,7 +12,8 @@ class GaussianSQVAETrainer(TrainerBase):
         self.plots = {
             "loss_train": [], "mse_train": [], "perplexity_train": [],
             "loss_val": [], "mse_val": [], "perplexity_val": [],
-            "loss_test": [], "mse_test": [], "perplexity_test": []
+            "loss_test": [], "mse_test": [], "perplexity_test": [],
+            "gap": []
         }
         
     def _train(self, epoch):
@@ -95,7 +96,8 @@ class VmfSQVAETrainer(TrainerBase):
         self.plots = {
             "loss_train": [], "acc_train": [], "perplexity_train": [],
             "loss_val": [], "acc_val": [], "perplexity_val": [], "miou_val": [],
-            "loss_test": [], "acc_test": [], "perplexity_test": [], "miou_test": []
+            "loss_test": [], "acc_test": [], "perplexity_test": [], "miou_test": [],
+            "gap": []
         }
     
     def _train(self, epoch):

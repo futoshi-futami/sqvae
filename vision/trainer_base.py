@@ -54,6 +54,13 @@ class TrainerBase(nn.Module):
             res_test = self._test()
             if self.flgs.save:
                 self._writer_val(res_test, epoch)
+                if "mse" in res_test:
+                    gap = res_test["mse"] - res_train["mse"]
+                elif "acc" in res_test:
+                    gap = res_test["acc"] - res_train["acc"]
+                else:
+                    gap = res_test["loss"] - res_train["loss"]
+                self._writer_gap(gap)
             
             if self.flgs.save:
                 if res_test["loss"] <= BEST_LOSS:
@@ -111,7 +118,7 @@ class TrainerBase(nn.Module):
     
     def generate_reconstructions_paper(self, nrows=1, ncols=10, off_set=0):
         self.model.eval()
-        x = self.test_loader.__iter__().next()[0]
+        x = next(iter(self.test_loader))[0]
         x = x[off_set:off_set+nrows*ncols].cuda()
         output = self.model(x, flg_train=False, flg_quant_det=True)
         x_tilde = output[0]
@@ -124,7 +131,7 @@ class TrainerBase(nn.Module):
 
     def _generate_reconstructions_continuous(self, filename, nrows=4, ncols=8):
         self.model.eval()
-        x = self.test_loader.__iter__().next()[0]
+        x = next(iter(self.test_loader))[0]
         x = x[:nrows*ncols].cuda()
         output = self.model(x, flg_train=False, flg_quant_det=True)
         x_tilde = output[0]
@@ -134,7 +141,7 @@ class TrainerBase(nn.Module):
     
     def _generate_reconstructions_discrete(self, filename, nrows=4, ncols=8):
         self.model.eval()
-        x, y = self.test_loader.__iter__().next()
+        x, y = next(iter(self.test_loader))
         x = x[:nrows*ncols].cuda()
         y = y[:nrows*ncols].cuda()
         y[:, 0, :, :] = y[:, 0, :, :] * 255.0
@@ -198,6 +205,10 @@ class TrainerBase(nn.Module):
     def _writer_test(self, result):
         self._append_writer_test(result)
         np.save(os.path.join(self.path, "plots.npy"), self.plots)
+
+    def _writer_gap(self, value):
+        self._append_writer_gap(value)
+        np.save(os.path.join(self.path, "plots.npy"), self.plots)
     
     def _append_writer_train(self, result):
         for metric in result:
@@ -210,4 +221,7 @@ class TrainerBase(nn.Module):
     def _append_writer_test(self, result):
         for metric in result:
             self.plots[metric+"_test"].append(result[metric])
+
+    def _append_writer_gap(self, value):
+        self.plots["gap"].append(value)
 

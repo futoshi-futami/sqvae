@@ -1,8 +1,9 @@
-from yacs.config import CfgNode as CN
+import os
+from .simple_config import CfgNode as CN
 
 _C = CN(new_allowed=True)
-_C.path = "/checkpoint_path" # To be set in advance
-_C.path_dataset = "/dataset_path" # To be set in advance
+_C.path = os.environ.get("SQVAE_CHECKPOINT", "/checkpoint_path")
+_C.path_dataset = os.environ.get("SQVAE_DATA", "/dataset_path")
 _C.nworker = 2
 _C.list_dir_for_copy = ['', 'networks/'] # []
 
@@ -12,6 +13,8 @@ _C.dataset = CN(new_allowed=True)
 _C.model = CN(new_allowed=True)
 
 _C.network = CN(new_allowed=True)
+_C.network.num_rb_enc = 2
+_C.network.num_rb_dec = 2
 
 _C.train = CN(new_allowed=True)
 _C.train.bs = 32

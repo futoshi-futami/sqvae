@@ -15,7 +15,7 @@ class EncoderVqResnet28(nn.Module):
         layers_conv.append(nn.Conv2d(dim_z // 2, dim_z, 4, stride=2, padding=1))
         self.conv = nn.Sequential(*layers_conv)
         # Resblocks
-        num_rb = cfgs.num_rb
+        num_rb = getattr(cfgs, "num_rb_enc", cfgs.num_rb)
         layers_resblocks = []
         for i in range(num_rb-1):
             layers_resblocks.append(ResBlock(dim_z))
@@ -38,7 +38,7 @@ class DecoderVqResnet28(nn.Module):
     def __init__(self, dim_z, cfgs, flg_bn=True):
         super(DecoderVqResnet28, self).__init__()
         # Resblocks
-        num_rb = cfgs.num_rb
+        num_rb = getattr(cfgs, "num_rb_dec", cfgs.num_rb)
         layers_resblocks = []
         for i in range(num_rb):
             layers_resblocks.append(ResBlock(dim_z))
