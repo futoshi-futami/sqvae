@@ -2,17 +2,15 @@
 
 import argparse
 import csv
-import re
 import shlex
 import statistics
-import subprocess
 from pathlib import Path
 from typing import Dict, List
 
-import numpy as np
+import main as sqvae_main
 
 
-ROOT = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,7 +44,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output",
-        default=str(ROOT / "experiments" / "cifar10_cdvib_beta_results.csv"),
+        default=str(BASE_DIR / "experiments" / "cifar10_cdvib_beta_results.csv"),
         help="CSV file used to store per-seed reconstruction losses",
     )
     parser.add_argument(
@@ -60,61 +58,42 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _extract_checkpoint_path(output: str) -> Path:
-    match = re.search(r"\[Checkpoint path\]\s*(.+)", output)
-    if not match:
-        raise RuntimeError(
-            "Failed to locate checkpoint path in main.py output.\n" + output
-        )
-    return Path(match.group(1).strip())
+def _build_main_argv(
+    config: str, seed: int, beta: float, gpu: str, extra_args: str
+) -> List[str]:
+    argv: List[str] = ["-c", config, "--save", "--seed", str(seed), "--cdvib_beta", str(beta)]
+    if gpu is not None:
+        argv.extend(["--gpu", gpu])
+    if extra_args:
+        argv.extend(shlex.split(extra_args))
+    return argv
+
+
+def _extract_test_reconstruction(test_result: Dict[str, float], beta: float, seed: int) -> float:
+    if "mse" in test_result:
+        return float(test_result["mse"])
+    if "loss" in test_result:
+        return float(test_result["loss"])
+    raise KeyError(
+        "Test result does not contain a reconstruction-compatible metric for "
+        f"seed={seed}, beta={beta}."
+    )
 
 
 def run_single(config: str, seed: int, beta: float, gpu: str, extra_args: str) -> float:
-    cmd: List[str] = [
-        "python",
-        "main.py",
-        "-c",
-        config,
-        "--save",
-        "--seed",
-        str(seed),
-        "--cdvib_beta",
-        str(beta),
-    ]
-    if gpu is not None:
-        cmd.extend(["--gpu", gpu])
-    if extra_args:
-        cmd.extend(shlex.split(extra_args))
+    argv = _build_main_argv(config, seed, beta, gpu, extra_args)
+    args = sqvae_main.arg_parse(argv)
+    run_info = sqvae_main.run_experiment(args)
 
-    result = subprocess.run(
-        cmd,
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-    combined_output = "\n".join([result.stdout, result.stderr])
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Experiment failed for seed={seed}, beta={beta}:\n{combined_output}"
-        )
-
-    checkpoint_path = _extract_checkpoint_path(combined_output)
+    checkpoint_path = Path(run_info["checkpoint_dir"])
     plots_path = checkpoint_path / "plots.npy"
     if not plots_path.exists():
         raise FileNotFoundError(
             f"Could not find plots.npy at {plots_path} for seed={seed}, beta={beta}."
         )
 
-    plots: Dict[str, List[float]] = np.load(plots_path, allow_pickle=True).item()
-    if "mse_test" not in plots or not plots["mse_test"]:
-        raise KeyError(
-            "plots.npy does not contain mse_test entries required for reconstruction "
-            f"metrics at {plots_path}."
-        )
-
-    test_reconst = float(plots["mse_test"][-1])
+    test_result = run_info["test_result"]
+    test_reconst = _extract_test_reconstruction(test_result, beta, seed)
     return test_reconst
 
 

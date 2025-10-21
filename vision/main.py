@@ -1,13 +1,15 @@
 import os
 import argparse
-from configs.defaults import get_cfgs_defaults
+from typing import Dict, Optional, Sequence
+
 import torch
 
+from configs.defaults import get_cfgs_defaults
 from trainer import GaussianSQVAETrainer, VmfSQVAETrainer
 from util import set_seeds, get_loader
 
 
-def arg_parse():
+def arg_parse(argv: Optional[Sequence[str]] = None):
     parser = argparse.ArgumentParser(
             description="main.py")
     parser.add_argument(
@@ -25,7 +27,7 @@ def arg_parse():
     parser.add_argument(
         "--cdvib_beta", type=float, default=None,
         help="coefficient for the CDVIB-style KL regularizer")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     return args
 
 
@@ -50,27 +52,21 @@ def load_config(args):
     return cfgs, flgs
 
 
-if __name__ == "__main__":
-    print("main.py")
-    
-    ## Experimental setup
-    args = arg_parse()
+def run_experiment(args: argparse.Namespace) -> Dict[str, object]:
     if args.gpu != "":
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+
     cfgs, flgs = load_config(args)
     print("[Checkpoint path] "+cfgs.path)
     print(cfgs)
-    
-    ## Device
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    torch.device("cuda" if torch.cuda.is_available() else "cpu")
     set_seeds(args.seed)
 
-    ## Data loader
     train_loader, val_loader, test_loader = get_loader(
         cfgs.dataset.name, cfgs.path_dataset, cfgs.train.bs, cfgs.nworker)
     print("Complete dataload")
 
-    ## Trainer
     print("=== {} ===".format(cfgs.model.name.upper()))
     if cfgs.model.name == "GaussianSQVAE":
         trainer = GaussianSQVAETrainer(cfgs, flgs, train_loader, val_loader, test_loader)
@@ -79,11 +75,24 @@ if __name__ == "__main__":
     else:
         raise Exception("Undefined model.")
 
-    ## Main
     if args.timestamp == "":
         trainer.main_loop()
+
     if flgs.save:
         trainer.load(args.timestamp)
         print("Best models were loaded!!")
-        res_test = trainer.test()
+        test_result = trainer.test()
+    else:
+        test_result = trainer.test()
+
+    return {
+        "test_result": test_result,
+        "checkpoint_dir": trainer.path,
+    }
+
+
+if __name__ == "__main__":
+    print("main.py")
+    parsed_args = arg_parse()
+    run_experiment(parsed_args)
 
