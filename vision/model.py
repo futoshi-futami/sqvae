@@ -43,12 +43,20 @@ class SQVAE(nn.Module):
         self.dim_dict = cfgs.quantization.dim_dict
         self.codebook = nn.Parameter(torch.randn(self.size_dict, self.dim_dict))
         self.log_param_q_scalar = nn.Parameter(torch.tensor(cfgs.model.log_param_q_init))
+        cdvib_beta = getattr(cfgs.quantization, "cdvib_beta", 0.0)
         if self.param_var_q == "vmf":
             self.quantizer = VmfVectorQuantizer(
-                self.size_dict, self.dim_dict, cfgs.quantization.temperature.init)
+                self.size_dict,
+                self.dim_dict,
+                cfgs.quantization.temperature.init,
+                cdvib_beta=cdvib_beta)
         else:
             self.quantizer = GaussianVectorQuantizer(
-                self.size_dict, self.dim_dict, cfgs.quantization.temperature.init, self.param_var_q)
+                self.size_dict,
+                self.dim_dict,
+                cfgs.quantization.temperature.init,
+                self.param_var_q,
+                cdvib_beta=cdvib_beta)
         
     
     def forward(self, x, flg_train=False, flg_quant_det=True):

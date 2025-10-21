@@ -22,6 +22,9 @@ def arg_parse():
         "--gpu", default="0", help="index of gpu to be used")
     parser.add_argument(
         "--seed", type=int, default=0, help="seed number for randomness")
+    parser.add_argument(
+        "--cdvib_beta", type=float, default=None,
+        help="coefficient for the CDVIB-style KL regularizer")
     args = parser.parse_args()
     return args
 
@@ -36,6 +39,8 @@ def load_config(args):
     cfgs.flags.noprint = not args.dbg
     cfgs.path_data = cfgs.path
     cfgs.path = os.path.join(cfgs.path, cfgs.path_specific)
+    if args.cdvib_beta is not None:
+        cfgs.quantization.cdvib_beta = args.cdvib_beta
     if cfgs.model.name.lower() == "vmfsqvae":
         cfgs.quantization.dim_dict += 1
     cfgs.flags.var_q = not(cfgs.model.param_var_q=="gaussian_1" or

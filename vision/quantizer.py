@@ -80,8 +80,10 @@ class VectorQuantizer(nn.Module):
 
 
 class GaussianVectorQuantizer(VectorQuantizer):
-    def __init__(self, size_dict, dim_dict, temperature=0.5, param_var_q="gaussian_1"):
-        super(GaussianVectorQuantizer, self).__init__(size_dict, dim_dict, temperature)
+    def __init__(self, size_dict, dim_dict, temperature=0.5, param_var_q="gaussian_1",
+                 alpha=0.9, cdvib_beta=1e-3):
+        super(GaussianVectorQuantizer, self).__init__(
+            size_dict, dim_dict, temperature, alpha=alpha, cdvib_beta=cdvib_beta)
         self.param_var_q = param_var_q
     
     def _quantize(self, z_from_encoder, var_q, codebook, flg_train=True, flg_quant_det=False):
@@ -144,8 +146,9 @@ class GaussianVectorQuantizer(VectorQuantizer):
 
 
 class VmfVectorQuantizer(VectorQuantizer):
-    def __init__(self, size_dict, dim_dict, temperature=0.5):
-        super(VmfVectorQuantizer, self).__init__(size_dict, dim_dict, temperature)
+    def __init__(self, size_dict, dim_dict, temperature=0.5, alpha=0.9, cdvib_beta=1e-3):
+        super(VmfVectorQuantizer, self).__init__(
+            size_dict, dim_dict, temperature, alpha=alpha, cdvib_beta=cdvib_beta)
     
     def _quantize(self, z_from_encoder, kappa_q, codebook, flg_train=True, flg_quant_det=False):
         bs, dim_z, width, height = z_from_encoder.shape

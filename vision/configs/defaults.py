@@ -23,6 +23,7 @@ _C.quantization.temperature = CN(new_allowed=True)
 _C.quantization.temperature.init = 1.0
 _C.quantization.temperature.decay = 0.00001
 _C.quantization.temperature.min = 0.0
+_C.quantization.cdvib_beta = 0.0
 
 _C.test = CN(new_allowed=True)
 _C.test.bs = 50
