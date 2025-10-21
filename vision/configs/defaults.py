@@ -1,4 +1,4 @@
-from yacs.config import CfgNode as CN
+from configs.simple_cfg import CfgNode as CN
 
 _C = CN(new_allowed=True)
 _C.path = "/checkpoint_path" # To be set in advance
