@@ -43,12 +43,20 @@ class SQVAE(nn.Module):
         self.dim_dict = cfgs.quantization.dim_dict
         self.codebook = nn.Parameter(torch.randn(self.size_dict, self.dim_dict))
         self.log_param_q_scalar = nn.Parameter(torch.tensor(cfgs.model.log_param_q_init))
+        prior_cfg = getattr(cfgs.quantization, "prior", None)
+        prior_beta = 0.0
+        prior_ema = 0.9
+        if prior_cfg is not None:
+            prior_beta = getattr(prior_cfg, "beta", prior_beta)
+            prior_ema = getattr(prior_cfg, "ema", prior_ema)
         if self.param_var_q == "vmf":
             self.quantizer = VmfVectorQuantizer(
-                self.size_dict, self.dim_dict, cfgs.quantization.temperature.init)
+                self.size_dict, self.dim_dict, cfgs.quantization.temperature.init,
+                prior_ema=prior_ema, prior_beta=prior_beta)
         else:
             self.quantizer = GaussianVectorQuantizer(
-                self.size_dict, self.dim_dict, cfgs.quantization.temperature.init, self.param_var_q)
+                self.size_dict, self.dim_dict, cfgs.quantization.temperature.init,
+                self.param_var_q, prior_ema=prior_ema, prior_beta=prior_beta)
         
     
     def forward(self, x, flg_train=False, flg_quant_det=True):
@@ -73,7 +81,7 @@ class SQVAE(nn.Module):
             self.param_q = (log_var_q.exp() + self.log_param_q_scalar.exp())
         
         # Quantization
-        z_quantized, loss_latent, perplexity = self.quantizer(
+        z_quantized, loss_latent, perplexity, aux = self.quantizer(
             z_from_encoder, self.param_q, self.codebook, flg_train, flg_quant_det)
         latents = dict(z_from_encoder=z_from_encoder, z_to_decoder=z_quantized)
 
@@ -83,7 +91,9 @@ class SQVAE(nn.Module):
         # Loss
         loss = self._calc_loss(x_reconst, x, loss_latent)
         loss["perplexity"] = perplexity
-        
+        if aux:
+            loss.update(aux)
+
         return x_reconst, latents, loss
     
     def _calc_loss(self):

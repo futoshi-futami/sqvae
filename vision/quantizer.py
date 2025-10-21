@@ -26,12 +26,17 @@ def calc_distance(z_continuous, codebook, dim_dict):
 
 
 class VectorQuantizer(nn.Module):
-    def __init__(self, size_dict, dim_dict, temperature=0.5):
+    def __init__(self, size_dict, dim_dict, temperature=0.5,
+                 prior_ema=0.9, prior_beta=0.0):
         super(VectorQuantizer, self).__init__()
         self.size_dict = size_dict
         self.dim_dict = dim_dict
         self.temperature = temperature
-    
+        self.prior_ema = prior_ema
+        self.prior_beta = prior_beta
+        prior = torch.full((self.size_dict,), 1.0 / self.size_dict)
+        self.register_buffer("prior_prob", prior)
+
     def forward(self, z_from_encoder, param_q, codebook, flg_train, flg_quant_det=False):
         return self._quantize(z_from_encoder, param_q, codebook,
                                 flg_train=flg_train, flg_quant_det=flg_quant_det)
@@ -41,19 +46,43 @@ class VectorQuantizer(nn.Module):
     
     def set_temperature(self, value):
         self.temperature = value
-    
+
     def _calc_distance_bw_enc_codes(self):
         raise NotImplementedError()
-    
+
     def _calc_distance_bw_enc_dec(self):
         raise NotImplementedError()
 
+    @torch.no_grad()
+    def _ema_update_prior(self, assignment_probs):
+        if assignment_probs.numel() == 0:
+            return
+        mean_probs = assignment_probs.mean(dim=0)
+        self.prior_prob.mul_(1.0 - self.prior_ema).add_(self.prior_ema * mean_probs)
+        total = self.prior_prob.sum()
+        if total.item() > 0:
+            self.prior_prob.div_(total)
+        else:
+            self.prior_prob.fill_(1.0 / self.size_dict)
+
+    def _compute_index_kl(self, assignment_probs):
+        if self.prior_beta <= 0:
+            return assignment_probs.new_zeros(())
+        if self.training:
+            self._ema_update_prior(assignment_probs.detach())
+        probs = assignment_probs.clamp_min(1e-8)
+        prior = self.prior_prob.clamp_min(1e-8)
+        kl = torch.sum(probs * (probs.log() - prior.log()), dim=-1).mean()
+        return kl
+
 
 class GaussianVectorQuantizer(VectorQuantizer):
-    def __init__(self, size_dict, dim_dict, temperature=0.5, param_var_q="gaussian_1"):
-        super(GaussianVectorQuantizer, self).__init__(size_dict, dim_dict, temperature)
+    def __init__(self, size_dict, dim_dict, temperature=0.5, param_var_q="gaussian_1",
+                 prior_ema=0.9, prior_beta=0.0):
+        super(GaussianVectorQuantizer, self).__init__(
+            size_dict, dim_dict, temperature, prior_ema, prior_beta)
         self.param_var_q = param_var_q
-    
+
     def _quantize(self, z_from_encoder, var_q, codebook, flg_train=True, flg_quant_det=False):
         bs, dim_z, width, height = z_from_encoder.shape
         z_from_encoder_permuted = z_from_encoder.permute(0, 2, 3, 1).contiguous()
@@ -85,10 +114,13 @@ class GaussianVectorQuantizer(VectorQuantizer):
         # Latent loss
         kld_discrete = torch.sum(probabilities * log_probabilities, dim=(0,1)) / bs
         kld_continuous = self._calc_distance_bw_enc_dec(z_from_encoder, z_to_decoder, 0.5 * precision_q).mean()
-        loss = kld_discrete + kld_continuous
+        kl_index = self._compute_index_kl(probabilities)
+        loss = kld_discrete + kld_continuous + self.prior_beta * kl_index
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-7)))
 
-        return z_to_decoder, loss, perplexity
+        aux = {"kl_index": kl_index.detach()}
+
+        return z_to_decoder, loss, perplexity, aux
 
     def _calc_distance_bw_enc_codes(self, z_from_encoder, codebook, weight):        
         if self.param_var_q == "gaussian_1":
@@ -113,9 +145,11 @@ class GaussianVectorQuantizer(VectorQuantizer):
 
 
 class VmfVectorQuantizer(VectorQuantizer):
-    def __init__(self, size_dict, dim_dict, temperature=0.5):
-        super(VmfVectorQuantizer, self).__init__(size_dict, dim_dict, temperature)
-    
+    def __init__(self, size_dict, dim_dict, temperature=0.5,
+                 prior_ema=0.9, prior_beta=0.0):
+        super(VmfVectorQuantizer, self).__init__(
+            size_dict, dim_dict, temperature, prior_ema, prior_beta)
+
     def _quantize(self, z_from_encoder, kappa_q, codebook, flg_train=True, flg_quant_det=False):
         bs, dim_z, width, height = z_from_encoder.shape
         z_from_encoder_permuted = z_from_encoder.permute(0, 2, 3, 1).contiguous()
@@ -146,11 +180,14 @@ class VmfVectorQuantizer(VectorQuantizer):
 
         # Latent loss
         kld_discrete = torch.sum(probabilities * log_probabilities, dim=(0,1)) / bs
-        kld_continuous = self._calc_distance_bw_enc_dec(z_from_encoder, z_to_decoder, kappa_q).mean()        
-        loss = kld_discrete + kld_continuous
+        kld_continuous = self._calc_distance_bw_enc_dec(z_from_encoder, z_to_decoder, kappa_q).mean()
+        kl_index = self._compute_index_kl(probabilities)
+        loss = kld_discrete + kld_continuous + self.prior_beta * kl_index
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-7)))
 
-        return z_to_decoder, loss, perplexity
+        aux = {"kl_index": kl_index.detach()}
+
+        return z_to_decoder, loss, perplexity, aux
  
     def _calc_distance_bw_enc_codes(self, z_from_encoder, codebook, kappa_q):
         z_from_encoder_flat = z_from_encoder.view(-1, self.dim_dict)
