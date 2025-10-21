@@ -9,26 +9,39 @@ from trainer import GaussianSQVAETrainer, VmfSQVAETrainer
 from util import set_seeds, get_loader
 
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    """Create the ArgumentParser used by both the CLI and library callers."""
+
+    parser = argparse.ArgumentParser(description="main.py")
+    parser.add_argument("-c", "--config_file", default="", help="config file")
+    parser.add_argument(
+        "-ts",
+        "--timestamp",
+        default="",
+        help="saved path (random seed + date)",
+    )
+    parser.add_argument("--save", action="store_true", help="save trained model")
+    parser.add_argument(
+        "--dbg", action="store_true", help="print losses per epoch"
+    )
+    parser.add_argument("--gpu", default="0", help="index of gpu to be used")
+    parser.add_argument(
+        "--seed", type=int, default=0, help="seed number for randomness"
+    )
+    parser.add_argument(
+        "--cdvib_beta",
+        type=float,
+        default=None,
+        help="coefficient for the CDVIB-style KL regularizer",
+    )
+    return parser
+
+
 def arg_parse(argv: Optional[Sequence[str]] = None):
-    parser = argparse.ArgumentParser(
-            description="main.py")
-    parser.add_argument(
-        "-c", "--config_file", default="", help="config file")
-    parser.add_argument(
-        "-ts", "--timestamp", default="", help="saved path (random seed + date)")
-    parser.add_argument(
-        "--save", action="store_true", help="save trained model")
-    parser.add_argument(
-        "--dbg", action="store_true", help="print losses per epoch")
-    parser.add_argument(
-        "--gpu", default="0", help="index of gpu to be used")
-    parser.add_argument(
-        "--seed", type=int, default=0, help="seed number for randomness")
-    parser.add_argument(
-        "--cdvib_beta", type=float, default=None,
-        help="coefficient for the CDVIB-style KL regularizer")
-    args = parser.parse_args(argv)
-    return args
+    parser = build_arg_parser()
+    if argv is None:
+        return parser.parse_args()
+    return parser.parse_args(list(argv))
 
 
 def load_config(args):
