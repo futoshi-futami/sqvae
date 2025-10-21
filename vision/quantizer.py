@@ -75,6 +75,9 @@ class VectorQuantizer(nn.Module):
         kl = torch.sum(probs * (probs.log() - prior.log()), dim=-1).mean()
         return kl
 
+    def set_prior_beta(self, value: float):
+        self.prior_beta = float(value)
+
 
 class GaussianVectorQuantizer(VectorQuantizer):
     def __init__(self, size_dict, dim_dict, temperature=0.5, param_var_q="gaussian_1",

@@ -83,6 +83,10 @@ class TrainerBase(nn.Module):
         if mode == "test":
             self._writer_test(result)
         return result
+
+    def evaluate_once(self, mode="test"):
+        """Run a single evaluation pass without scheduler or logging side effects."""
+        raise NotImplementedError()
     
     def _set_temperature(self, step, param):
         temperature = np.max([param.init * np.exp(-param.decay*step), param.min])

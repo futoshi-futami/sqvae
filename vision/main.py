@@ -1,10 +1,40 @@
 import os
 import argparse
+import numbers
 from configs.defaults import get_cfgs_defaults
 import torch
 
 from trainer import GaussianSQVAETrainer, VmfSQVAETrainer
 from util import set_seeds, get_loader
+
+
+def _coerce_metric_value(value):
+    if isinstance(value, numbers.Number):
+        return float(value)
+    if hasattr(value, "item"):
+        try:
+            return float(value.item())
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
+def _print_metric_table(metrics_with, metrics_without, beta_with):
+    metric_names = sorted(set(metrics_with.keys()) & set(metrics_without.keys()))
+    header = (
+        f"Metric comparison (beta={beta_with:g} vs beta=0):" if beta_with is not None
+        else "Metric comparison (configured beta vs beta=0):"
+    )
+    print("\n" + header)
+    print("=" * len(header))
+    print(f"{'metric':<16}{'beta':>12}{'no_kl':>12}{'delta':>12}")
+    for name in metric_names:
+        val_with = _coerce_metric_value(metrics_with[name])
+        val_without = _coerce_metric_value(metrics_without[name])
+        if val_with is None or val_without is None:
+            continue
+        delta = val_without - val_with
+        print(f"{name:<16}{val_with:>12.6f}{val_without:>12.6f}{delta:>12.6f}")
 
 
 def arg_parse():
@@ -81,4 +111,15 @@ if __name__ == "__main__":
         trainer.load(args.timestamp)
         print("Best models were loaded!!")
         res_test = trainer.test()
+        model_module = getattr(trainer.model, "module", trainer.model)
+        quantizer = getattr(model_module, "quantizer", None)
+        if quantizer is not None and hasattr(quantizer, "set_prior_beta"):
+            original_beta = getattr(quantizer, "prior_beta", 0.0)
+            beta_value = float(original_beta) if original_beta is not None else None
+            quantizer.set_prior_beta(0.0)
+            try:
+                res_test_no_kl = trainer.evaluate_once("test")
+            finally:
+                quantizer.set_prior_beta(original_beta)
+            _print_metric_table(res_test, res_test_no_kl, beta_value)
 

@@ -86,6 +86,12 @@ class GaussianSQVAETrainer(TrainerBase):
                 result["loss"], result["mse"], result["perplexity"], time_interval
             ), self.flgs.noprint)
 
+    def evaluate_once(self, mode="test"):
+        self.model.eval()
+        _ = self._test_sub(False, mode)
+        result = self._test_sub(True, mode)
+        return result
+
 
 class VmfSQVAETrainer(TrainerBase):
     def __init__(self, cfgs, flgs, train_loader, val_loader, test_loader):
@@ -175,5 +181,11 @@ class VmfSQVAETrainer(TrainerBase):
             .format(
             result["loss"], result["acc"], result["perplexity"], time_interval
             ), self.flgs.noprint)
+
+    def evaluate_once(self, mode="test"):
+        self.model.eval()
+        _ = self._test_sub(False, mode)
+        result = self._test_sub(True, mode)
+        return result
 
 
