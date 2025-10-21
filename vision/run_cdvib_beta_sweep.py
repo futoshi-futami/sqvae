@@ -2,15 +2,28 @@
 
 import argparse
 import csv
+import importlib.util
 import shlex
 import statistics
 from pathlib import Path
+from types import ModuleType
 from typing import Dict, List
-
-import main as sqvae_main
 
 
 BASE_DIR = Path(__file__).resolve().parent
+
+
+def _load_sqvae_main() -> ModuleType:
+    module_path = BASE_DIR / "main.py"
+    spec = importlib.util.spec_from_file_location("sqvae_main", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Unable to load main.py from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+SQVAE_MAIN = _load_sqvae_main()
 
 
 def parse_args() -> argparse.Namespace:
@@ -82,9 +95,9 @@ def _extract_test_reconstruction(test_result: Dict[str, float], beta: float, see
 
 def run_single(config: str, seed: int, beta: float, gpu: str, extra_args: str) -> float:
     argv = _build_main_argv(config, seed, beta, gpu, extra_args)
-    parser = sqvae_main.build_arg_parser()
+    parser = SQVAE_MAIN.build_arg_parser()
     args = parser.parse_args(argv)
-    run_info = sqvae_main.run_experiment(args)
+    run_info = SQVAE_MAIN.run_experiment(args)
 
     checkpoint_path = Path(run_info["checkpoint_dir"])
     plots_path = checkpoint_path / "plots.npy"
