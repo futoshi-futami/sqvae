@@ -26,11 +26,14 @@ def calc_distance(z_continuous, codebook, dim_dict):
 
 
 class VectorQuantizer(nn.Module):
-    def __init__(self, size_dict, dim_dict, temperature=0.5):
+    def __init__(self, size_dict, dim_dict, temperature=0.5, alpha=0.9, cdvib_beta=1e-3):
         super(VectorQuantizer, self).__init__()
         self.size_dict = size_dict
         self.dim_dict = dim_dict
         self.temperature = temperature
+        self.alpha = alpha
+        self.cdvib_beta = cdvib_beta
+        self.register_buffer("pi", torch.full((size_dict,), 1.0 / size_dict))
     
     def forward(self, z_from_encoder, param_q, codebook, flg_train, flg_quant_det=False):
         return self._quantize(z_from_encoder, param_q, codebook,
@@ -41,17 +44,46 @@ class VectorQuantizer(nn.Module):
     
     def set_temperature(self, value):
         self.temperature = value
-    
+
     def _calc_distance_bw_enc_codes(self):
         raise NotImplementedError()
-    
+
     def _calc_distance_bw_enc_dec(self):
         raise NotImplementedError()
 
+    @torch.no_grad()
+    def _ema_update_pi(self, probs_flat):
+        if probs_flat.numel() == 0:
+            return
+
+        batch_mean = probs_flat.mean(dim=0)
+        self.pi.mul_(1 - self.alpha)
+        self.pi.add_(self.alpha * batch_mean)
+        self.pi.div_(self.pi.sum())
+
+    def _cdvib_regularization(self, probabilities, flg_train):
+        if not flg_train or self.cdvib_beta <= 0:
+            return probabilities.new_tensor(0.0)
+
+        probs_flat = probabilities.view(-1, probabilities.size(-1))
+        if probs_flat.numel() == 0:
+            return probabilities.new_tensor(0.0)
+
+        with torch.no_grad():
+            self._ema_update_pi(probs_flat.detach())
+
+        probs_clamped = probs_flat.clamp_min(1e-8)
+        pi = self.pi.clamp_min(1e-8)
+        kl = (probs_clamped * (probs_clamped.log() - pi.log())).sum(dim=1).mean()
+
+        return kl
+
 
 class GaussianVectorQuantizer(VectorQuantizer):
-    def __init__(self, size_dict, dim_dict, temperature=0.5, param_var_q="gaussian_1"):
-        super(GaussianVectorQuantizer, self).__init__(size_dict, dim_dict, temperature)
+    def __init__(self, size_dict, dim_dict, temperature=0.5, param_var_q="gaussian_1",
+                 alpha=0.9, cdvib_beta=1e-3):
+        super(GaussianVectorQuantizer, self).__init__(
+            size_dict, dim_dict, temperature, alpha=alpha, cdvib_beta=cdvib_beta)
         self.param_var_q = param_var_q
     
     def _quantize(self, z_from_encoder, var_q, codebook, flg_train=True, flg_quant_det=False):
@@ -85,7 +117,8 @@ class GaussianVectorQuantizer(VectorQuantizer):
         # Latent loss
         kld_discrete = torch.sum(probabilities * log_probabilities, dim=(0,1)) / bs
         kld_continuous = self._calc_distance_bw_enc_dec(z_from_encoder, z_to_decoder, 0.5 * precision_q).mean()
-        loss = kld_discrete + kld_continuous
+        kl_cdvib = self._cdvib_regularization(probabilities, flg_train)
+        loss = kld_discrete + kld_continuous + self.cdvib_beta * kl_cdvib
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-7)))
 
         return z_to_decoder, loss, perplexity
@@ -113,8 +146,9 @@ class GaussianVectorQuantizer(VectorQuantizer):
 
 
 class VmfVectorQuantizer(VectorQuantizer):
-    def __init__(self, size_dict, dim_dict, temperature=0.5):
-        super(VmfVectorQuantizer, self).__init__(size_dict, dim_dict, temperature)
+    def __init__(self, size_dict, dim_dict, temperature=0.5, alpha=0.9, cdvib_beta=1e-3):
+        super(VmfVectorQuantizer, self).__init__(
+            size_dict, dim_dict, temperature, alpha=alpha, cdvib_beta=cdvib_beta)
     
     def _quantize(self, z_from_encoder, kappa_q, codebook, flg_train=True, flg_quant_det=False):
         bs, dim_z, width, height = z_from_encoder.shape
@@ -147,7 +181,8 @@ class VmfVectorQuantizer(VectorQuantizer):
         # Latent loss
         kld_discrete = torch.sum(probabilities * log_probabilities, dim=(0,1)) / bs
         kld_continuous = self._calc_distance_bw_enc_dec(z_from_encoder, z_to_decoder, kappa_q).mean()        
-        loss = kld_discrete + kld_continuous
+        kl_cdvib = self._cdvib_regularization(probabilities, flg_train)
+        loss = kld_discrete + kld_continuous + self.cdvib_beta * kl_cdvib
         perplexity = torch.exp(-torch.sum(avg_probs * torch.log(avg_probs + 1e-7)))
 
         return z_to_decoder, loss, perplexity

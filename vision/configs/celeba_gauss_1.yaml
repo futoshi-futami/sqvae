@@ -20,3 +20,4 @@ train:
 quantization:
   size_dict: 512
   dim_dict: 64
+  cdvib_beta: 0.0
